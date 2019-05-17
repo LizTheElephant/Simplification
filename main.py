@@ -1,7 +1,8 @@
 import tokenizer
 import torch
 import torch.nn as nn
-from Net import Encoder, Decoder, Seq2Seq
+#from ConvNet import Encoder, Decoder, Seq2Seq
+from Transformer import Encoder, Decoder, EncoderLayer, DecoderLayer, SelfAttention, PositionwiseFeedforward, Seq2Seq
 
 from nltk.translate.bleu_score import sentence_bleu
 
@@ -70,7 +71,6 @@ def evaluate(model, iterator, criterion):
             trg = batch.trg
 
             output, _ = model(src, trg[:, :-1])
-
             # output = [batch size, trg sent len - 1, output dim]
             # trg = [batch size, trg sent len]
 
@@ -124,12 +124,28 @@ def main():
     DEC_KERNEL_SIZE = 3
     ENC_DROPOUT = 0.25
     DEC_DROPOUT = 0.25
-    PAD_IDX = dst_field.vocab.stoi['<pad>']
+    #PAD_IDX = dst_field.vocab.stoi['<pad>']
+    PAD_IDX = src_field.vocab.stoi['<pad>']
+    n_layers = 6
+    n_heads = 8
+    pf_dim = 2048
+    dropout = 0.1
 
-    enc = Encoder(INPUT_DIM, EMB_DIM, HID_DIM, ENC_LAYERS, ENC_KERNEL_SIZE, ENC_DROPOUT, device)
-    dec = Decoder(OUTPUT_DIM, EMB_DIM, HID_DIM, DEC_LAYERS, DEC_KERNEL_SIZE, DEC_DROPOUT, PAD_IDX, device)
+    #enc = Encoder(INPUT_DIM, EMB_DIM, HID_DIM, ENC_LAYERS, ENC_KERNEL_SIZE, ENC_DROPOUT, device)
+    #dec = Decoder(OUTPUT_DIM, EMB_DIM, HID_DIM, DEC_LAYERS, DEC_KERNEL_SIZE, DEC_DROPOUT, PAD_IDX, device)
 
-    model = Seq2Seq(enc, dec, device).to(device)
+    enc = Encoder(INPUT_DIM, HID_DIM, n_layers, n_heads, pf_dim, EncoderLayer, SelfAttention, PositionwiseFeedforward,
+                  dropout, device)
+
+    n_layers = 6
+    n_heads = 8
+    pf_dim = 2048
+    dropout = 0.1
+
+    dec = Decoder(OUTPUT_DIM, HID_DIM, n_layers, n_heads, pf_dim, DecoderLayer, SelfAttention, PositionwiseFeedforward,
+                  dropout, device)
+
+    model = Seq2Seq(enc, dec, PAD_IDX, device).to(device)
 
     optimizer = torch.optim.Adam(model.parameters())
     criterion = nn.CrossEntropyLoss(ignore_index = PAD_IDX)
@@ -138,7 +154,7 @@ def main():
     train(model, train_iter, valid_iter, optimizer, criterion)
 
     model.load_state_dict(torch.load('model/conv_seq2seq.pt'))
-    test_loss=evaluate(model, test_iter, sentence_bleu)
+    test_loss=evaluate(model, test_iter, criterion)
     print(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
 
 main()
