@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 #from ConvNet import Encoder, Decoder, Seq2Seq
 from Transformer import Encoder, Decoder, EncoderLayer, DecoderLayer, SelfAttention, PositionwiseFeedforward, Seq2Seq
+import RateOpt
 
 from nltk.translate.bleu_score import sentence_bleu
 
@@ -27,7 +28,8 @@ def train_epoch(model, iterator, optimizer, criterion, clip):
         src = batch.src
         trg = batch.trg
 
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
+        optimizer.optimizer.zero_grad()
 
         output, _ = model(src, trg[:, :-1])
 
@@ -147,10 +149,12 @@ def main():
 
     model = Seq2Seq(enc, dec, PAD_IDX, device).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters())
+    #optimizer = torch.optim.Adam(model.parameters())
     criterion = nn.CrossEntropyLoss(ignore_index = PAD_IDX)
 
     #use valid & test set to save time...
+    optimizer = RateOpt.NoamOpt(HID_DIM, 1, 2000,
+                        torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
     train(model, train_iter, valid_iter, optimizer, criterion)
 
     model.load_state_dict(torch.load('model/conv_seq2seq.pt'))

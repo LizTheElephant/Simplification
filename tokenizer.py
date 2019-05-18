@@ -28,7 +28,7 @@ def initialize_field(path_src, path_dst, load):
                Field(tokenize=tokenize, init_token='<sos>', eos_token='<eos>', lower=True, batch_first=True)
 
 
-def get_data(path, batch_size, load):
+def get_data(path, batch_size, load, mini=True):
 
     field_src, field_dst = initialize_field(path + 'field.src', path + 'field.dst', load)
 
@@ -36,11 +36,13 @@ def get_data(path, batch_size, load):
     print("Loading Training Set... ")
     #train_set = TranslationDataset(path=path + '.train.', exts=('src', 'dst'), fields=(field_src, field_dst))
 
+    train_set = TranslationDataset(path=path + ('.test.' if mini else '.train.'), exts=('src', 'dst'), fields=(field_src, field_dst))
+
     print("Loading Validation Set... ")
-    valid_set = TranslationDataset(path=path + '.valid.', exts=('src', 'dst'), fields=(field_src, field_dst))
+    valid_set = TranslationDataset(path=path + ('.valid.' if mini else '.valid.'), exts=('src', 'dst'), fields=(field_src, field_dst))
 
     print("Loading Test Set... ")
-    test_set  = TranslationDataset(path=path + '.test.', exts=('src', 'dst'), fields=(field_src, field_dst))
+    test_set  = TranslationDataset(path=path + ('.test.' if mini else '.test.'), exts=('src', 'dst'), fields=(field_src, field_dst))
 
     # Build vocabulary. Train, validation and test sets share the same volcabulary
     if load==False:
@@ -52,13 +54,13 @@ def get_data(path, batch_size, load):
 
     # Initialize dataloaders
     print("Creating Iterators... ")
-    #train_iter = BucketIterator(dataset=train_set, batch_size=batch_size,
-    #                            sort_key=lambda x: torchtext.data.interleave_keys(len(x.field_src), len(x.field_dst)))
+    train_iter = BucketIterator(dataset=train_set, batch_size=batch_size,
+                                sort_key=lambda x: torchtext.data.interleave_keys(len(x.field_src), len(x.field_dst)))
     valid_iter = BucketIterator(dataset=valid_set, batch_size=batch_size,
                                 sort_key=lambda x: torchtext.data.interleave_keys(len(x.field_src), len(x.field_dst)))
     test_iter  = BucketIterator(dataset=test_set, batch_size=batch_size,
                                 sort_key=lambda x: torchtext.data.interleave_keys(len(x.field_src), len(x.field_dst)))
-    #return train_iter, valid_iter, test_iter, field_src, field_dst
-    return valid_iter, test_iter, test_iter, field_src, field_dst
+    return train_iter, valid_iter, test_iter, field_src, field_dst
+    #return train_set, test_iter, test_iter, field_src, field_dst
 
 
