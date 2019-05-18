@@ -8,7 +8,7 @@ import time
 import tabulate
 
 
-swa_start = 5                         # number of epoch after which SWA will start to average models
+swa_start = 20                         # number of epoch after which SWA will start to average models
 swa_lr = 0.05                          # swa learning rate
 swa_c_epochs = 1                       # SWA model collection frequency / cycle length (epochs)
 eval_freq = 3                          # frequency with which the model shall be evaluated
@@ -64,13 +64,20 @@ def train(model, swa_model, train_iter, valid_iter, optimizer, criterion, swa_n 
         lr = utils.schedule(epoch, swa_start, swa_lr, lr_init)
         utils.adjust_learning_rate(optimizer, lr)
         train_res = utils.train_epoch(model, train_iter, optimizer, criterion)
-        valid_res = utils.evaluate(model, valid_iter, criterion)
+
+        if epoch == 0 or epoch % eval_freq == eval_freq - 1 or epoch == nr_epochs - 1:
+            valid_res = utils.evaluate(model, valid_iter, criterion)
+        else:
+            valid_res = {'loss': None}
 
         if (epoch + 1) >= swa_start and (epoch + 1 - swa_start) % swa_c_epochs == 0:
             utils.moving_average(swa_model, model, 1.0 / (swa_n + 1))
             swa_n += 1
-            utils.bn_update(train_iter, swa_model)
-            swa_res = utils.evaluate(swa_model, valid_iter, criterion)
+            if epoch == 0 or epoch % eval_freq == eval_freq - 1 or epoch == nr_epochs - 1:
+                utils.bn_update(train_iter, swa_model)
+                swa_res = utils.eval(swa_model, valid_iter, criterion)
+            else:
+                swa_res = {'loss': None, 'accuracy': None}
 
         if (epoch + 1) % save_freq == 0:
             utils.save_checkpoint(
@@ -84,7 +91,6 @@ def train(model, swa_model, train_iter, valid_iter, optimizer, criterion, swa_n 
             )
 
         time_ep = time.time() - time_ep
-
         values = [epoch + 1, lr, train_res['loss'],valid_res['loss'], swa_res['loss'], time_ep]
 
         table = tabulate.tabulate([values], columns, tablefmt='simple', floatfmt='8.4f')
