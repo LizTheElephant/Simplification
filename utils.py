@@ -2,12 +2,13 @@ import torch
 import os
 
 
-def save_checkpoint(dir, epoch, file_path, **kwargs):
+def save_checkpoint(dir, epoch, filecode, **kwargs):
     state = {
         'epoch': epoch,
     }
     state.update(kwargs)
-    torch.save(state, os.path.join(dir, file_path))
+    filepath = os.path.join(dir, (filecode + '-%d.pt') % epoch)
+    torch.save(state, filepath)
 
 
 def _check_bn(module, flag):
@@ -45,7 +46,6 @@ def bn_update(loader, model):
         :param model: model being update
         :return: None
     """
-    print("Normalizing....")
     if not check_bn(model):
         return
     model.train()
@@ -67,23 +67,9 @@ def bn_update(loader, model):
     model.apply(lambda module: _set_momenta(module, momenta))
 
 
-def schedule(epoch, swa_start, swa_lr, lr_init):
-    t = epoch / swa_start
-    lr_ratio = swa_lr
-    if t <= 0.5:
-        factor = 1.0
-    elif t <= 0.9:
-        factor = 1.0 - (1.0 - lr_ratio) * (t - 0.5) / 0.4
-    else:
-        factor = lr_ratio
-    print(f'| Schedule learning rate by factor: {factor}')
-    return lr_init * factor
-
-
-def moving_average(net1, net2, alpha=1):
-    for param1, param2 in zip(net1.parameters(), net2.parameters()):
-        param1.data *= (1.0 - alpha)
-        param1.data += param2.data * alpha
+def moving_average(swa_model, model, swa_n):
+    for swa_param, model_param in zip(swa_model.parameters(), model.parameters()):
+        swa_param.data = (swa_n * swa_param.data  + swa_param.data) / (swa_n + 1)
 
 
 def adjust_learning_rate(optimizer, lr):
@@ -96,15 +82,15 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def train_epoch(model, iterator, optimizer, criterion):
+def train_epoch(model, iterator, optimizer, criterion, device):
     model.train()
 
     epoch_loss = 0.0
     correct = 0.0
 
     for i, batch in enumerate(iterator):
-        src = batch.src
-        trg = batch.trg
+        src = batch.src.to(device)
+        trg = batch.trg.to(device)
         optimizer.zero_grad()
 
         output, _ = model(src, trg[:, :-1])
@@ -121,11 +107,11 @@ def train_epoch(model, iterator, optimizer, criterion):
 
     return {
         'loss': epoch_loss / len(iterator),
-        'accuracy': correct / len(iterator) * 100
+        'accuracy': correct / len(iterator) * 1
     }
 
 
-def evaluate(model, iterator, criterion):
+def evaluate(model, iterator, criterion, device):
     model.eval()
 
     epoch_loss = 0.0
@@ -133,8 +119,8 @@ def evaluate(model, iterator, criterion):
 
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            src = batch.src
-            trg = batch.trg
+            src = batch.src.to(device)
+            trg = batch.trg.to(device)
 
             output, _ = model(src, trg[:, :-1])
             output = output.contiguous().view(-1, output.shape[-1])
@@ -150,11 +136,3 @@ def evaluate(model, iterator, criterion):
         'loss': epoch_loss / len(iterator),
         'accuracy': correct / len(iterator) * 100
     }
-
-
-def epoch_time(start_time, end_time):
-    elapsed_time = end_time - start_time
-    elapsed_mins = int(elapsed_time / 60)
-    elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
-    return elapsed_mins, elapsed_secs
-
