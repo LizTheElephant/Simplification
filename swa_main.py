@@ -1,6 +1,5 @@
 import tokenizer
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from Transformer import Encoder, Decoder, EncoderLayer, DecoderLayer, SelfAttention, PositionwiseFeedforward, Seq2Seq
 import utils
@@ -10,7 +9,6 @@ import tabulate
 import copy
 import csv
 import datetime
-import os
 
 pretrain_epochs = 50                       # number of epoch after which SWA will start to average models
 swa_epochs = 20                            # number of epoch to average after training
@@ -178,10 +176,10 @@ def main():
 
     model = Seq2Seq(enc, dec, pad_idx, device).to(device)
 
-    criterion = nn.CrossEntropyLoss(ignore_index = pad_idx)
+    criterion = F.cross_entropy
     optimizer = torch.optim.SGD(model.parameters(), lr_init, momentum, weight_decay)
 
-    columns = ['epoch', 'tr_loss', 'val_loss', 'test_loss', 'time']
+    columns = ['epoch', 'lr', 'tr_loss', 'val_loss', 'swa_loss', 'test_loss', 'swa_test_loss', 'time']
     csv_data = []
     csv_data.append(columns)
     csv_data = train(model, train_iter, valid_iter, optimizer, criterion, columns, csv_data, device)

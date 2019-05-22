@@ -129,9 +129,11 @@ def evaluate(model, iterator, criterion, device):
             loss = criterion(output, trg)
 
             epoch_loss += loss.item()
-            prediction = output.data.max(1, keepdim=True)[1]
+            prediction, index = output.data.max(1, keepdim=True)
             correct += prediction.eq(trg).sum().item()
 
+            print(output.data)
+            print(output)
     return {
         'loss': epoch_loss / len(iterator),
         'accuracy': correct / len(iterator) * 100

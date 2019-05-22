@@ -3,10 +3,18 @@ from torchtext.datasets import TranslationDataset
 from torchtext.data import Field, BucketIterator
 from spacy.lang.en import English
 import dill
+import math
+import torch
 
 
 def tokenize(text):
     return [tok.text for tok in English().tokenizer(text)]
+
+
+def untokenize(doc, index, vocab):
+    eos_tok = vocab.stoi['<eos>']
+    length = (doc[index] == eos_tok).nonzero()[0]
+    return ' '.join([vocab.itos[tok] for tok in doc[index][1:length]])
 
 
 def save_data(path, field):
@@ -62,5 +70,3 @@ def get_data(path, batch_size, load, mini=True):
                                 sort_key=lambda x: torchtext.data.interleave_keys(len(x.field_src), len(x.field_dst)))
     return train_iter, valid_iter, test_iter, field_src, field_dst
     #return train_set, test_iter, test_iter, field_src, field_dst
-
-
