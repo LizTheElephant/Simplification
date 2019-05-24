@@ -1,14 +1,37 @@
 import torch
 import os
 
+def schedule(epoch, cycle_length, min_lr, max_lr):
+    t = (((epoch-1) % cycle_length)+1)/cycle_length
+    lr = (1-t)*max_lr + t*min_lr
+    return lr
+
 
 def save_checkpoint(dir, epoch, filecode, **kwargs):
     state = {
         'epoch': epoch,
     }
     state.update(kwargs)
-    filepath = os.path.join(dir, (filecode + '-%d.pt') % epoch)
-    torch.save(state, filepath)
+    torch.save(state, join_paths(dir, (filecode + '-%d.pt') % epoch))
+
+
+def join_paths(path1, path2):
+    return os.path.join(path1, path2)
+
+
+def make_directory(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+
+def get_all_file_paths(directory):
+    file_paths = []
+
+    for root, directories, files in os.walk(directory):
+        for filename in files:
+            filepath = os.path.join(root, filename)
+            file_paths.append(filepath)
+    return file_paths
 
 
 def _check_bn(module, flag):
@@ -129,11 +152,8 @@ def evaluate(model, iterator, criterion, device):
             loss = criterion(output, trg)
 
             epoch_loss += loss.item()
-            prediction, index = output.data.max(1, keepdim=True)
+            prediction = output.data.max(1, keepdim=True)[1]
             correct += prediction.eq(trg).sum().item()
-
-            print(output.data)
-            print(output)
     return {
         'loss': epoch_loss / len(iterator),
         'accuracy': correct / len(iterator) * 100

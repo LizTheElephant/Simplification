@@ -3,9 +3,6 @@ from torchtext.datasets import TranslationDataset
 from torchtext.data import Field, BucketIterator
 from spacy.lang.en import English
 import dill
-import math
-import torch
-
 
 def tokenize(text):
     return [tok.text for tok in English().tokenizer(text)]
