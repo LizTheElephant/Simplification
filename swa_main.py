@@ -1,7 +1,6 @@
 import tokenizer
 import torch
 import Transformer
-import ConvNet
 import utils
 
 import time
@@ -97,8 +96,8 @@ def swa_train(model, swa_model, train_iter, valid_iter, optimizer, criterion, pr
         optimizer=optimizer.state_dict()
     )
 
-    for epoch in range(pretrain_epochs + swa_epochs):
-        epoch = epoch + pretrain_epochs
+    for e in range(swa_epochs):
+        epoch = e + pretrain_epochs
         time_ep = time.time()
         lr = utils.schedule(epoch, cycle_length, lr_init, swa_lr)
         utils.adjust_learning_rate(optimizer, lr)
@@ -184,34 +183,42 @@ def main(use_test_set, swa_epochs, pretrain_epochs):
     cpt_filename = 'transformer'          # checkpoint filename baseline model
 
     swa_lr_set = [0.001, 0.05, 0.1]
-    cycle_length_set = [5, 7, 10]
-
+    cycle_length_set = [1, 5, 10]
     print('TRANSFORMER')
-    with open(utils.join_paths(csv_directory, cpt_filename +"-" + date + '.csv'), 'w', newline='') as csv_file:
+
+    print('Training')
+    with open(utils.join_paths(csv_directory, cpt_filename + "-" + date + '.csv'), 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(columns)
         train(model, train_iter, valid_iter, optimizer, criterion, pretrain_epochs, device, writer, cpt_filename)
         model_immutable.load_state_dict(copy.deepcopy(model.state_dict()))
-        for swa_lr in swa_lr_set:
-            print('LEARNING RATE-{:2.4f}'.format(swa_lr))
-            for cycle_length in cycle_length_set:
-                print('CYCLE LENGTH-{:03d}'.format(cycle_length))
-                model.load_state_dict(copy.deepcopy(model_immutable.state_dict()))
-                swa_train(model, swa_model, train_iter, valid_iter, optimizer, criterion, pretrain_epochs, swa_epochs, swa_lr, cycle_length, device, writer, cpt_filename)
-                test(model, swa_model, test_iter, criterion, device, writer)
     csv_file.close()
 
+    print('SWA Training')
+
+    for swa_lr in swa_lr_set:
+        print('LEARNING RATE-{:2.4f}'.format(swa_lr))
+        for cycle_length in cycle_length_set:
+            with open(utils.join_paths(csv_directory, '{}-SWA-{:03}-{}-{}.csv'.format(cpt_filename, swa_lr, cycle_length, date)), 'w', newline='') as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(columns)
+                print('CYCLE LENGTH-{:03}'.format(cycle_length))
+                model.load_state_dict(copy.deepcopy(model_immutable.state_dict()))
+                swa_train(model, swa_model, train_iter, valid_iter, optimizer, criterion, pretrain_epochs, swa_epochs,
+                          swa_lr, cycle_length, device, writer, cpt_filename)
+                test(model, swa_model, test_iter, criterion, device, writer)
+
     # CONV NET
-    enc = ConvNet.Encoder(input_dim, embed_dem, hidden_dim, conv_n_layers, kernel_size, conv_dropout, device)
-    dec = ConvNet.Decoder(output_dim, embed_dem, hidden_dim, conv_n_layers, kernel_size, conv_dropout, pad_idx, device)
+    # enc = ConvNet.Encoder(input_dim, embed_dem, hidden_dim, conv_n_layers, kernel_size, conv_dropout, device)
+    # dec = ConvNet.Decoder(output_dim, embed_dem, hidden_dim, conv_n_layers, kernel_size, conv_dropout, pad_idx, device)
 
-    model = ConvNet.Seq2Seq(enc, dec, device).to(device)
-    swa_model = ConvNet.Seq2Seq(enc, dec, device).to(device)
-    model_immutable = ConvNet.Seq2Seq(enc, dec, device).to(device)
+    # model = ConvNet.Seq2Seq(enc, dec, device).to(device)
+    # swa_model = ConvNet.Seq2Seq(enc, dec, device).to(device)
+    # model_immutable = ConvNet.Seq2Seq(enc, dec, device).to(device)
 
-    cpt_filename = 'convNet'  # checkpoint filename baseline model
-    optimizer = torch.optim.Adam(model.parameters())
-    criterion = torch.nn.CrossEntropyLoss(ignore_index=pad_idx)
+    # cpt_filename = 'convNet'  # checkpoint filename baseline model
+    # optimizer = torch.optim.Adam(model.parameters())
+    # criterion = torch.nn.CrossEntropyLoss(ignore_index=pad_idx)
 
     #print('CONV NET')
     #with open(utils.join_paths(csv_directory, cpt_filename + "-" + date + '.csv'), 'w', newline='') as csv_file:
@@ -237,4 +244,5 @@ def main(use_test_set, swa_epochs, pretrain_epochs):
         for file in file_paths:
             zip.write(file)
 
-main(False, 20, 200)
+main(False, 15, 50)
+#main(True, 1, 1)
