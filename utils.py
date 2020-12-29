@@ -62,13 +62,6 @@ def _set_momenta(module, momenta):
 
 
 def bn_update(loader, model):
-    """
-        BatchNorm buffers update (if any).
-        Performs 1 epochs to estimate buffers average using train dataset.
-        :param loader: train dataset loader for buffers average estimation.
-        :param model: model being update
-        :return: None
-    """
     if not check_bn(model):
         return
     model.train()

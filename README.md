@@ -1,1 +1,2 @@
-Include DB with file name up to TRAIN/TEST/VALID under PATH in main.py
+This project applies Stochastic Weight Averaging (SWA, [Garipov et al., 2019](https://arxiv.org/pdf/1803.05407.pdf)) to Transformer networks ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)) for demonstration purposes. The results verify the applicability of SWA to text data in addition to image data as used in the paper, and hence support the argument of SWA as a universal technique for finding better minimal in the loss surface of Deep Neural Networks.
+See the presentation slides in 'swa_transformer_presentation.pdf' for more details.
